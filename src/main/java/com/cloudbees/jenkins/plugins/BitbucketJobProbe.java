@@ -1,5 +1,30 @@
+/*
+ * The MIT License
+ *
+ * Copyright (c) 2016 CloudBees, Inc
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.cloudbees.jenkins.plugins;
 
+import com.cloudbees.jenkins.plugins.payload.BitbucketPayload;
 import hudson.model.Job;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.GitStatus;
@@ -26,58 +51,63 @@ import org.eclipse.jgit.transport.URIish;
 import com.google.common.base.Objects;
 
 public class BitbucketJobProbe {
-
-    @Deprecated
-    public void triggerMatchingJobs(String user, String url, String scm) {
-        triggerMatchingJobs(user, url, scm, "");
-    }
-
-    public void triggerMatchingJobs(String user, String url, String scm, String payload) {
-        if ("git".equals(scm) || "hg".equals(scm)) {
+    public void triggetMatchingJobs(BitbucketEvent bitbucketEvent, BitbucketPayload bitbucketPayload) {
+        if("git".equals(bitbucketPayload.getScm()) || "hg".equals(bitbucketPayload.getScm())) {
             SecurityContext old = Jenkins.getInstance().getACL().impersonate(ACL.SYSTEM);
+
             try {
-                URIish remote = new URIish(url);
+                URIish remote = new URIish(bitbucketPayload.getScmUrl());
+
                 for (Job<?,?> job : Jenkins.getInstance().getAllItems(Job.class)) {
-                    BitBucketTrigger bTrigger = null;
                     LOGGER.log(Level.FINE, "Considering candidate job {0}", job.getName());
 
-                    if (job instanceof ParameterizedJobMixIn.ParameterizedJob) {
-                        ParameterizedJobMixIn.ParameterizedJob pJob = (ParameterizedJobMixIn.ParameterizedJob) job;
-                        for (Trigger trigger : pJob.getTriggers().values()) {
-                            if (trigger instanceof BitBucketTrigger) {
-                                bTrigger = (BitBucketTrigger) trigger;
-                                break;
+                    BitBucketTrigger bitbucketTrigger = getBitBucketTrigger(job);
+                    if (bitbucketTrigger != null) {
+                        LOGGER.log(Level.FINE, "Considering to poke {0}", job.getFullDisplayName());
+
+                        SCMTriggerItem item = SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(job);
+
+                        List<SCM> scmTriggered = new ArrayList<SCM>();
+
+                        for (SCM scmTrigger : item.getSCMs()) {
+                            if (match(scmTrigger, remote) && !hasBeenTriggered(scmTriggered, scmTrigger)) {
+                                scmTriggered.add(scmTrigger);
+
+                                bitbucketTrigger.onPost(bitbucketEvent, bitbucketPayload);
+                            } else {
+                                LOGGER.log(Level.FINE, "{0} SCM doesn't match remote repo {1}", new Object[]{job.getName(), remote});
                             }
                         }
                     }
-                    if (bTrigger != null) {
-                        LOGGER.log(Level.FINE, "Considering to poke {0}", job.getFullDisplayName());
-                        SCMTriggerItem item = SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(job);
-                        List<SCM> scmTriggered = new ArrayList<SCM>();
-                        for (SCM scmTrigger : item.getSCMs()) {
-                            if (match(scmTrigger, remote) && !hasBeenTriggered(scmTriggered, scmTrigger)) {
-                                LOGGER.log(Level.INFO, "Triggering BitBucket job {0}", job.getName());
-                                scmTriggered.add(scmTrigger);
-                                bTrigger.onPost(user, payload);
-                            } else LOGGER.log(Level.FINE, "{0} SCM doesn't match remote repo {1}", new Object[]{job.getName(), remote});
-                        }
-                    } else
-                        LOGGER.log(Level.FINE, "{0} hasn't BitBucketTrigger set", job.getName());
                 }
             } catch (URISyntaxException e) {
-                LOGGER.log(Level.WARNING, "Invalid repository URL {0}", url);
+                LOGGER.log(Level.WARNING, "Invalid repository URL {0}", bitbucketPayload.getScm());
             } finally {
                 SecurityContextHolder.setContext(old);
             }
 
         } else {
-            throw new UnsupportedOperationException("Unsupported SCM type " + scm);
+            throw new UnsupportedOperationException("Unsupported SCM type " + bitbucketPayload.getScm());
         }
+    }
+
+    private BitBucketTrigger getBitBucketTrigger(Job<?, ?> job) {
+        if (job instanceof ParameterizedJobMixIn.ParameterizedJob) {
+            ParameterizedJobMixIn.ParameterizedJob pJob = (ParameterizedJobMixIn.ParameterizedJob) job;
+            for (Trigger trigger : pJob.getTriggers().values()) {
+                if (trigger instanceof BitBucketTrigger) {
+                    return (BitBucketTrigger) trigger;
+                }
+            }
+        }
+
+        return null;
     }
 
     private boolean hasBeenTriggered(List<SCM> scmTriggered, SCM scmTrigger) {
         for (SCM scm : scmTriggered) {
             if (scm.equals(scmTrigger)) {
+                LOGGER.log(Level.FINEST, "Has been triggered {0}", scmTrigger.getType());
                 return true;
             }
         }
@@ -94,6 +124,7 @@ public class BitbucketJobProbe {
                     }
                     LOGGER.log(Level.FINE, "Trying to match {0} ", urIish.toString() + "<-->" + url.toString());
                     if (GitStatus.looselyMatches(urIish, url)) {
+                        LOGGER.log(Level.FINEST, "{0} and {1} looselyMatched successfully", new Object[]{urIish.toString(), url.toString()});
                         return true;
                     }
                 }

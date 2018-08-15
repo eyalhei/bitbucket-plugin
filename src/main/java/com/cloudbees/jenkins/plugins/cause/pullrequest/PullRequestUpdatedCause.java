@@ -22,30 +22,26 @@
  * THE SOFTWARE.
  */
 
-package com.cloudbees.jenkins.plugins;
+package com.cloudbees.jenkins.plugins.cause.pullrequest;
 
-import hudson.Extension;
-import hudson.security.csrf.CrumbExclusion;
+import com.cloudbees.jenkins.plugins.payload.BitbucketPayload;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 
-@Extension
-public class BitbucketCrumbExclusion extends CrumbExclusion {
-    private static final String EXCLUSION_PATH = "/" + BitbucketHookReceiver.BITBUCKET_HOOK_URL;
-
-    @Override
-    public boolean process(HttpServletRequest req, HttpServletResponse resp, FilterChain chain)
-            throws IOException, ServletException {
-        String pathInfo = req.getPathInfo();
-        if (pathInfo != null && (pathInfo.equals(EXCLUSION_PATH) || pathInfo.equals(EXCLUSION_PATH + "/"))) {
-            chain.doFilter(req, resp);
-            return true;
-        }
-        return false;
+/**
+ * The {@link PullRequestUpdatedCause} which represents a type of {@link PullRequestCause}
+ *
+ * @version 2.0
+ * @since September 21, 2017
+ */
+public class PullRequestUpdatedCause extends PullRequestCause {
+    public PullRequestUpdatedCause(File pollingLog, BitbucketPayload bitbucketPayload) throws IOException {
+        super(pollingLog, bitbucketPayload);
     }
 
+    @Override
+    public String getShortDescription() {
+        return "Started by Bitbucket pull request updated";
+    }
 }

@@ -22,30 +22,29 @@
  * THE SOFTWARE.
  */
 
-package com.cloudbees.jenkins.plugins;
+package com.cloudbees.jenkins.plugins.processor;
 
-import hudson.Extension;
-import hudson.security.csrf.CrumbExclusion;
+import com.cloudbees.jenkins.plugins.BitbucketEvent;
+import com.cloudbees.jenkins.plugins.BitbucketJobProbe;
+import net.sf.json.JSONObject;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+/**
+ * Process the BitBucket payload
+ * @since August 1, 2016
+ * @version 2.0
+ */
+public abstract class BitbucketPayloadProcessor {
+    protected final BitbucketJobProbe jobProbe;
+    protected final BitbucketEvent bitbucketEvent;
 
-@Extension
-public class BitbucketCrumbExclusion extends CrumbExclusion {
-    private static final String EXCLUSION_PATH = "/" + BitbucketHookReceiver.BITBUCKET_HOOK_URL;
-
-    @Override
-    public boolean process(HttpServletRequest req, HttpServletResponse resp, FilterChain chain)
-            throws IOException, ServletException {
-        String pathInfo = req.getPathInfo();
-        if (pathInfo != null && (pathInfo.equals(EXCLUSION_PATH) || pathInfo.equals(EXCLUSION_PATH + "/"))) {
-            chain.doFilter(req, resp);
-            return true;
-        }
-        return false;
+    public BitbucketPayloadProcessor(BitbucketJobProbe jobProbe, BitbucketEvent bitbucketEvent) {
+        this.jobProbe = jobProbe;
+        this.bitbucketEvent = bitbucketEvent;
     }
+
+    /**
+     * Payload processor
+     */
+    public abstract void processPayload(JSONObject payload);
 
 }

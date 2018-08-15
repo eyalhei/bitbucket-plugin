@@ -22,30 +22,41 @@
  * THE SOFTWARE.
  */
 
-package com.cloudbees.jenkins.plugins;
+package com.cloudbees.jenkins.plugins.filter.pullrequest;
 
+import com.cloudbees.jenkins.plugins.cause.BitbucketTriggerCause;
+import com.cloudbees.jenkins.plugins.cause.pullrequest.PullRequestCreatedCause;
+import com.cloudbees.jenkins.plugins.payload.BitbucketPayload;
 import hudson.Extension;
-import hudson.security.csrf.CrumbExclusion;
+import org.kohsuke.stapler.DataBoundConstructor;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.io.File;
 import java.io.IOException;
 
-@Extension
-public class BitbucketCrumbExclusion extends CrumbExclusion {
-    private static final String EXCLUSION_PATH = "/" + BitbucketHookReceiver.BITBUCKET_HOOK_URL;
+/**
+ * The filter for PullRequestCreatedActionFilter
+ * @since August 1, 2016
+ * @version 2.0
+ */
+public class PullRequestCreatedActionFilter extends PullRequestActionFilter {
+
+    @DataBoundConstructor
+    public PullRequestCreatedActionFilter() {
+    }
 
     @Override
-    public boolean process(HttpServletRequest req, HttpServletResponse resp, FilterChain chain)
-            throws IOException, ServletException {
-        String pathInfo = req.getPathInfo();
-        if (pathInfo != null && (pathInfo.equals(EXCLUSION_PATH) || pathInfo.equals(EXCLUSION_PATH + "/"))) {
-            chain.doFilter(req, resp);
-            return true;
-        }
-        return false;
+    public boolean shouldTriggerBuild(BitbucketPayload bitbucketPayload) {
+        return true;
+    }
+
+    @Override
+    public BitbucketTriggerCause getCause(File pollingLog, BitbucketPayload pullRequestPayload) throws IOException {
+        return new PullRequestCreatedCause(pollingLog, pullRequestPayload);
+    }
+
+    @Extension
+    public static class ActionFilterDescriptorImpl extends PullRequestActionDescriptor {
+        public String getDisplayName() { return "Created"; }
     }
 
 }
