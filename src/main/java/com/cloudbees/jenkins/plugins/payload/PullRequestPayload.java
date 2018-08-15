@@ -67,15 +67,15 @@ public class PullRequestPayload extends BitbucketPayload {
         String branch = getSourceBranch();
         envVars.put("BITBUCKET_BRANCH", branch);
         LOGGER.log(Level.FINEST, "Injecting BITBUCKET_BRANCH: {0}", branch);
-        putEnvVar(envVars, "BITBUCKET_SOURCE_BRANCH", sourceBranch);
-        LOGGER.log(Level.FINEST, "Injecting BITBUCKET_SOURCE_BRANCH: {0}", sourceBranch);
+        envVars.put("BITBUCKET_SOURCE_BRANCH", branch);
+        LOGGER.log(Level.FINEST, "Injecting BITBUCKET_SOURCE_BRANCH: {0}", branch);
 
         String pullRequestUrl = getPullRequestUrl();
         envVars.put("PULL_REQUEST_LINK", pullRequestUrl);
         LOGGER.log(Level.FINEST, "Injecting PULL_REQUEST_LINK: {0}", pullRequestUrl);
 
         String targetBranch = getTargetBranch();
-        putEnvVar(envVars, "BITBUCKET_TARGET_BRANCH", targetBranch);
+        envVars.put("BITBUCKET_TARGET_BRANCH", targetBranch);
         LOGGER.log(Level.FINEST, "Injecting BITBUCKET_TARGET_BRANCH: {0}", targetBranch);
     }
 

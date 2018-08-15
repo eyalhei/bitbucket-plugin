@@ -1,5 +1,6 @@
 package com.cloudbees.jenkins.plugins;
 
+import com.cloudbees.jenkins.plugins.filter.BitbucketTriggerFilter;
 import hudson.model.JobProperty;
 import hudson.triggers.Trigger;
 import org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition;
@@ -38,7 +39,7 @@ public class BitbucketTriggerTest {
     @SuppressWarnings("rawtypes")
     @Test public void configRoundTripBitbucketTrigger() throws Exception {
         PipelineTriggersJobProperty triggersProperty = new PipelineTriggersJobProperty(null);
-        triggersProperty.addTrigger(new BitBucketTrigger());
+        triggersProperty.addTrigger(new BitBucketTrigger(null));
         List<JobProperty> properties = Collections.<JobProperty>singletonList(triggersProperty);
         new SnippetizerTester(j).assertRoundTrip(new JobPropertyStep(properties), "properties([pipelineTriggers([bitbucketPush()])])");
     }
